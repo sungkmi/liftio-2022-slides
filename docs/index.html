@@ -1,0 +1,658 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+  <meta charset="utf-8">
+
+  <title>Reveal JS presentation</title>
+
+  <meta name="description" content="A framework for easily creating beautiful presentations using HTML">
+  <meta name="author" content="Hakim El Hattab">
+
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <link rel="stylesheet" href="libs/reveal.js/4.3.1/reset.css">
+  <link rel="stylesheet" href="libs/reveal.js/4.3.1/reveal.css">
+
+  <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/font-awesome/4.5.0/css/font-awesome.min.css">
+
+  <!-- highlight Theme -->
+  
+  <link rel="stylesheet" href="libs/highlight.js/11.3.1/styles/monokai.min.css">
+  
+	
+		
+	<link rel="stylesheet" href="libs/reveal.js/4.3.1/plugin/chalkboard/style.css">
+	
+	
+	
+  <link rel="stylesheet" href="libs/reveal.js/4.3.1/plugin/customcontrols/style.css">
+  
+	
+
+
+
+  <!-- Revealjs Theme -->
+  
+  <link rel="stylesheet" href="libs/reveal.js/4.3.1/theme/black.css" id="theme">
+  
+  
+
+  <link rel="stylesheet" href="libs/styles/tasklist.css">
+	<link rel="stylesheet" href="libs/styles/iota.css">
+	<link rel="stylesheet" href="libs/styles/layout.css">
+
+
+  <!-- Revealjs Theme -->
+  
+
+   <!-- css list -->
+	
+
+   
+
+</head>
+
+<body>
+
+   
+
+  <div class="reveal">
+
+    <!-- Any section element inside of this container is displayed as a slide -->
+    <div class="slides">
+
+      
+
+
+    
+        <section >
+            
+            <h1>스칼라에서</br> 속성 기반 테스트로</br> 블록체인 개발하기</h1>
+<p>playNomm 김흥진</p>
+
+            </section>
+    
+
+
+
+    
+        <section >
+            
+            <p>playNomm 소개</p>
+<p><a href="https://m.playnomm.com/">https://m.playnomm.com/</a></p>
+
+            </section>
+    
+
+
+
+    
+        <section >
+            
+            <p>어떻게 해야 코드가 정확히 동작한다고 확신할 수 있을까?</p>
+
+            </section>
+    
+
+
+
+    
+        <section >
+            
+            <h2>이야기의 시작:</h2>
+<ul>
+<li><a href="https://en.wikipedia.org/wiki/Curry%E2%80%93Howard_correspondence">Curry–Howard correspondence</a></li>
+<li>명제 : 증명 = 타입선언 : 구현</li>
+</ul>
+
+            </section>
+    
+
+
+
+    
+        <section >
+            
+            <h2>Type Class Example: <code>ByteEncoder[A]</code></h2>
+<pre><code class="language-scala">trait ByteEncoder[A]:
+	def encode(a: A): ByteVector
+</code></pre>
+<p>“ByteEncoder[A] 가 존재한다” </br> $\iff$ “타입 A는 ByteVector로 바꿀 수 있다”</p>
+
+            </section>
+    
+
+
+
+    
+        <section >
+            
+            <h2>given</h2>
+<pre><code class="language-scala">
+import java.time.Instant
+
+given instantEncoder: ByteEncoder[Instant] =
+  instant =&gt; ByteVector.fromLong(instant.toEpochMilli)
+</code></pre>
+<p>“Instant는 ByteVector로 바꿀 수 있다”</p>
+
+            </section>
+    
+
+
+
+    
+        <section >
+            
+            <h2>using</h2>
+<pre><code class="language-scala">given tupleEncoder[A, B](using
+  ea: ByteEncoder[A],
+  eb: ByteEncoder[B],
+): ByteEncoder[(A, B)] =
+  case (a: A, b: B) =&gt; ea.encode(a) ++ eb.encode(b)
+</code></pre>
+<p>“A, B를 각각 ByteVector로 바꿀 수 있으면 </br> 튜플 (A, B)도 ByteVector로 바꿀 수 있다.”</p>
+
+            </section>
+    
+
+
+
+    
+        <section >
+            
+            <h2>요약</h2>
+<ul>
+<li>given 주어진 사실</li>
+<li>using 전제조건</li>
+<li>전제를 찾는 범위: companion object
+<ul>
+<li>F[A]를 찾는 범위: F 혹은 A 의 companion object</li>
+</ul>
+</li>
+</ul>
+
+            </section>
+    
+
+
+
+    
+        <section >
+            
+            <h2>이런 것도 가능</h2>
+<ul>
+<li>튜플의 각 원소 타입에 대해서 ByteEncoder가 주어지면 튜플 전체에 대한 ByteEncoder도 존재한다</li>
+<li>임의의 Case Class도 같은 타입의 튜플에 대해 ByteEncoder가 존재하면 존재한다</li>
+</ul>
+
+            </section>
+    
+
+
+
+    
+        <section >
+            
+            <h2>남은 문제들</h2>
+<ul>
+<li>base case는 정확한가?</li>
+<li>조합한 내용은 정확한가?</li>
+</ul>
+
+            </section>
+    
+
+
+
+    
+        <section >
+            
+            <h2>example-based test</h2>
+<ul>
+<li>예시 상황에서 어떻게 작동할 지 테스트</li>
+<li>생각을 시작하는데에는 도움됨</li>
+<li>올바른 동작에 대해서 확신하기는 어려움</li>
+</ul>
+
+            </section>
+    
+
+
+
+    
+        <section >
+            
+            <h2>property-based test</h2>
+<ul>
+<li>랜덤 생성된 예시에 대해서 특정 속성이 성립하는지 체크</li>
+<li>어떤 속성을 테스트해야될 지에 대해서는 깊이있는 생각이 필요함</li>
+</ul>
+
+            </section>
+    
+
+
+
+    
+        <section >
+            
+            <h2>관련 라이브러리</h2>
+<p><a href="https://scalacheck.org/">ScalaCheck</a></p>
+<ul>
+<li>가장 유명함</li>
+</ul>
+<p><a href="https://hedgehogqa.github.io/scala-hedgehog/">scala-hedgehog</a></p>
+<ul>
+<li>shrinking</li>
+<li>state-based testing</li>
+</ul>
+
+            </section>
+    
+
+
+
+    
+        <section >
+            
+            <h2>round trip test</h2>
+<ul>
+<li>ByteEncoder / ByteDecoder</li>
+</ul>
+<pre style="all:unset;"><div><img class="mermaid" src="https://kroki.io/mermaid/svg/eNorLkksSXXJTEwvSszVLTPi4nJU0NW1U3CqLEkNS00uyS9SsAJzXPOS81NSi6IdY7mQ5EBKHaEqXFLhKrgAy1Ybog==" /></div></pre>
+
+            </section>
+    
+
+
+
+    
+        <section >
+            
+            <h2>State-based testing(1/3)</h2>
+<p><img src="https://res.infoq.com/presentations/testing-techniques-case-study/en/slides/sl6.jpg" alt="state machine model"></p>
+
+            </section>
+    
+
+
+
+    
+        <section >
+            
+            <h2>State-based testing(2/3)</h2>
+<p>Merkle Trie</p>
+<ul>
+<li>포인터가 해시값으로 되어 있는 prefix 트리</li>
+<li>루트 노드의 해시값으로 트리 전체 내용 요약가능</li>
+<li>사전순 순회 가능</li>
+</ul>
+
+            </section>
+    
+
+
+
+    
+        <section >
+            
+            <h2>State-based testing(3/3)</h2>
+<p>어떤 특성을 유지해야 하는가?</p>
+<ul>
+<li>TreeMap과 같은 동작</li>
+<li>요약값이 일치하면 내용도 일치해야 함</li>
+</ul>
+
+            </section>
+    
+
+
+
+    
+        <section >
+            
+            <h2>그 외의 패턴들(1/5)</h2>
+<p>다른 경로 같은 도착지점</p>
+<ul>
+<li>Commutativity</li>
+<li>Associativity</li>
+<li>Map</li>
+<li>Monad &amp; Functor laws</li>
+</ul>
+
+            </section>
+    
+
+
+
+    
+        <section >
+            
+            <h2>그 외의 패턴들(2/5)</h2>
+<p>불변식</p>
+<ul>
+<li>컬렉션에서 map 함수: 컬렉션 크기</li>
+<li>컬렉션에서 정렬: 컬렉션 내용</li>
+<li>Balanced Tree: 높이가 일정</li>
+</ul>
+
+            </section>
+    
+
+
+
+    
+        <section >
+            
+            <h2>그 외의 패턴들(3/5)</h2>
+<p>Idempotence(멱등성)</p>
+<blockquote>
+<p>한 번 적용하기 = 두 번 이상 적용하기</p>
+</blockquote>
+<ul>
+<li>Sort</li>
+<li>Filter</li>
+<li>Event processing</li>
+<li>distributed designs</li>
+</ul>
+
+            </section>
+    
+
+
+
+    
+        <section >
+            
+            <h2>그 외의 패턴들(4/5)</h2>
+<p>Induction</p>
+<blockquote>
+<p>작은 문제로 쪼개서 검증</p>
+</blockquote>
+<ul>
+<li>Divide and conquer algorithm ( e.g. quicksort)</li>
+<li>Structural induction (recursive data structure)</li>
+</ul>
+
+            </section>
+    
+
+
+
+    
+        <section >
+            
+            <h2>그 외의 패턴들(5/5)</h2>
+<p>블랙박스 테스팅</p>
+<blockquote>
+<p>증명은 어렵고 검증은 쉬운 문제들</p>
+</blockquote>
+<ul>
+<li>소인수분해(다시 곱하면 원래 숫자)</li>
+<li>String tokenizer (다시 concat하면 원래대로 돌아옴)</li>
+<li>정렬 (모든 인접 페어에 대해 크기 비교)</li>
+</ul>
+
+            </section>
+    
+
+
+    </div>
+
+
+  </div>
+
+  <div class="line top"></div>
+  <div class="line bottom"></div>
+  <div class="line left"></div>
+  <div class="line right"></div>
+
+  <script src="libs/reveal.js/4.3.1/reveal.js"></script>
+<script src="libs/reveal.js/4.3.1/plugin/notes/notes.js"></script>
+<script src="libs/reveal.js/4.3.1/plugin/markdown/markdown.js"></script>
+<script src="libs/reveal.js/4.3.1/plugin/highlight/highlight.js"></script>
+<script src="libs/reveal.js/4.3.1/plugin/math/math.js"></script>
+<script src="libs/reveal.js/4.3.1/plugin/fullscreen/plugin.js"></script>
+<script src="libs/reveal.js/4.3.1/plugin/animate/plugin.js"></script>
+<script src="libs/reveal.js/4.3.1/plugin/animate/svg.min.js"></script>
+<script src="libs/reveal.js/4.3.1/plugin/anything/plugin.js"></script>
+<script src="libs/reveal.js/4.3.1/plugin/anything/Chart.min.js"></script>
+<script src="libs/reveal.js/4.3.1/plugin/anything/d3/d3.v3.min.js"></script>
+<script src="libs/reveal.js/4.3.1/plugin/anything/d3.patch.js"></script>
+<script src="libs/reveal.js/4.3.1/plugin/anything/d3/queue.v1.min.js"></script>
+<script src="libs/reveal.js/4.3.1/plugin/anything/d3/topojson.v1.min.js"></script>
+<script src="libs/reveal.js/4.3.1/plugin/anything/function-plot.js"></script>
+<script src="libs/reveal.js/4.3.1/plugin/customcontrols/plugin.js"></script>
+<script src="libs/reveal.js/4.3.1/plugin/embed-tweet/plugin.js"></script>
+<script src="libs/reveal.js/4.3.1/plugin/chart/chart.min.js"></script>
+<script src="libs/reveal.js/4.3.1/plugin/chart/plugin.js"></script>
+<script src="libs/reveal.js/4.3.1/plugin/verticator/verticator.js"></script>
+
+<script src="libs/reveal.js/4.3.1/plugin/zoom/zoom.js"></script>
+<script src="libs/reveal.js/4.3.1/plugin/search/search.js"></script>
+<script src="libs/reveal.js/4.3.1/plugin/menu/menu.js"></script>
+<script src="libs/reveal.js/4.3.1/plugin/chalkboard/plugin.js"></script>
+
+<!--	<script src="libs/reveal.js/4.3.1/plugin/audio-slideshow/plugin.js"></script>  -->
+<!--	<script src="libs/reveal.js/4.3.1/plugin/audio-slideshow/recorder.js"></script>-->
+<!--	<script src="libs/reveal.js/4.3.1/plugin/audio-slideshow/RecordRTC.js"></script>-->
+
+  
+
+<script>
+  const printPlugins = [
+      RevealNotes,
+      RevealHighlight,
+      RevealMath.MathJax3,
+      RevealAnimate,
+      RevealChalkboard, 
+			RevealEmbedTweet,
+			RevealChart,
+		];
+
+		const plugins =  [...printPlugins,
+		RevealZoom, 
+		RevealSearch, 
+				RevealMarkdown, 
+				RevealMenu, 
+				RevealFullscreen,
+				RevealAnything,
+				//RevealAudioSlideshow,
+				//RevealAudioRecorder,
+				RevealCustomControls, 
+				// poll
+				// question
+				// seminar
+				Verticator 
+				 ]
+
+
+		// Also available as an ES module, see:
+		// https://revealjs.com/initialization/
+		Reveal.initialize({
+			controls: true,
+      controlsTutorial: true,
+      controlsLayout: 'bottom-right',
+      controlsBackArrows: 'faded',
+      progress: true,
+      slideNumber: false,
+      //#showSlideNumber "all" "print" "speaker"
+      hash: true, //# hash: false,
+      //# respondToHashChanges: true,
+      //# history: false,
+      keyboard: true,
+      //#keyboardCondition: null,
+      overview: true,
+      center: true,
+      touch: true,
+      loop: false,
+      rtl: false,
+      //#navigationMode: 'default', linear grid
+      shuffle: false,
+      fragments: true,
+      fragmentInURL: false,
+      embedded: false,
+      help: true,
+      //#pause: true
+      showNotes: false,
+      autoPlayMedia: false, // TODO fix this to a nullable value
+      //#preloadIframes: null. true false
+      //#autoAnimate: true
+      //#autoAnimateMatcher: null,
+      //#autoAnimateEasing: 'ease',
+      //autoAnimateDuration: 1.0,
+      //#autoAnimateUnmatched: true
+      //#autoAnimateStyles: []
+      autoSlide: 0, // TODO fix this to a falseable value
+      autoSlideStoppable: true,
+      autoSlideMethod: '0',
+      defaultTiming: 120,
+      mouseWheel: false,
+      //#previewLinks: false
+      //#postMessage: true, // TODO : this can cause issues with the vscode api ???
+      //#postMessageEvents: false,
+      //#focusBodyOnPageVisibilityChange: true,
+      transition: 'slide',
+      transitionSpeed: 'default',
+      backgroundTransition: 'fade',
+      //#pdfMaxPagesPerSlide: Number.POSITIVE_INFINITY,
+      //#pdfSeparateFragments: true,
+      //#pdfPageHeightOffset: -1,
+      viewDistance: 3,
+      //#mobileViewDistance: 2,
+      display: 'block',
+      //#hideInactiveCursor: true,
+      //#hideCursorTime: 5000
+
+      // Parallax Background
+      parallaxBackgroundImage: '',
+      parallaxBackgroundSize: '',
+      parallaxBackgroundHorizontal: 0,
+      parallaxBackgroundVertical: 0,
+
+      //Presentation Size
+      width: 960,
+			height: 700,
+			margin: 0.04,
+      minScale: 0.2,
+      maxScale: 2,
+      disableLayout: false,
+
+      audio: {
+        prefix: 'audio/', // audio files are stored in the "audio" folder
+        suffix: '.ogg', // audio files have the ".ogg" ending
+        textToSpeechURL: null, // the URL to the text to speech converter
+        defaultNotes: false, // use slide notes as default for the text to speech converter
+        defaultText: false, // use slide text as default for the text to speech converter
+        advance: 0, // advance to next slide after given time in milliseconds after audio has played, use negative value to not advance
+        autoplay: false, // automatically start slideshow
+        defaultDuration: 5, // default duration in seconds if no audio is available
+        defaultAudios: true, // try to play audios with names such as audio/1.2.ogg
+        playerOpacity: 0.05, // opacity value of audio player if unfocused
+        playerStyle: 'position: fixed; bottom: 4px; left: 25%; width: 50%; height:75px; z-index: 33;', // style used for container of audio controls
+        startAtFragment: false, // when moving to a slide, start at the current fragment or at the start of the slide
+      },
+      
+      chalkboard: { // font-awesome.min.css must be available
+        //src: "chalkboard/chalkboard.json",
+        storage: "chalkboard-demo",
+      },
+      
+			customcontrols: {
+					controls: [
+      						{
+						  id: 'toggle-overview',
+						  title: 'Toggle overview (O)',
+						  icon: '<i class="fa fa-th"></i>',
+						  action: 'Reveal.toggleOverview();'
+						}
+						,
+      {
+        icon: '<i class="fa fa-pen-square"></i>',
+        title: 'Toggle chalkboard (B)',
+        action: 'RevealChalkboard.toggleChalkboard();'
+      },
+      {
+        icon: '<i class="fa fa-pen"></i>',
+        title: 'Toggle notes canvas (C)',
+        action: 'RevealChalkboard.toggleNotesCanvas();'
+      }
+      
+				]
+			},
+			chart: {
+					defaults: { 
+						color: 'lightgray', // color of labels
+						scale: { 
+							beginAtZero: true, 
+							ticks: { stepSize: 1 },
+							grid: { color: "lightgray" } , // color of grid lines
+						},
+					},
+					line: { borderColor: [ "rgba(20,220,220,.8)" , "rgba(220,120,120,.8)", "rgba(20,120,220,.8)" ], "borderDash": [ [5,10], [0,0] ] }, 
+					bar: { backgroundColor: [ "rgba(20,220,220,.8)" , "rgba(220,120,120,.8)", "rgba(20,120,220,.8)" ]}, 
+					pie: { backgroundColor: [ ["rgba(0,0,0,.8)" , "rgba(220,20,20,.8)", "rgba(20,220,20,.8)", "rgba(220,220,20,.8)", "rgba(20,20,220,.8)"] ]},
+					radar: { borderColor: [ "rgba(20,220,220,.8)" , "rgba(220,120,120,.8)", "rgba(20,120,220,.8)" ]}, 
+			},
+			math: {
+				mathjax: 'https://cdn.jsdelivr.net/gh/mathjax/mathjax@2.7.8/MathJax.js',
+				config: 'TeX-AMS_HTML-full',
+				// pass other options into `MathJax.Hub.Config()`
+				TeX: { Macros: { RR: "{\\bf R}" } }
+				},
+				anything: [ 
+				{
+		className: "plot",
+		defaults: {width:500, height: 500, grid:true},
+		initialize: (function(container, options){ options.target = "#"+container.id; functionPlot(options) })
+	 },
+	 {
+		className: "chart",  
+		initialize: (function(container, options){ container.chart = new Chart(container.getContext("2d"), options);  })
+	 },
+	 {
+		className: "anything",
+		initialize: (function(container, options){ if (options && options.initialize) { options.initialize(container)} })
+	 },
+					],
+			// Learn about plugins: https://revealjs.com/plugins/
+			plugins: (window.location.search.match(/print-pdf/gi) ? printPlugins : plugins ) 
+		});
+			
+
+
+	    // Change chalkboard theme : 
+		function changeTheme(input) {
+			var config = {};
+			config.theme = input.value;
+			Reveal.getPlugin("RevealChalkboard").configure(config);
+			input.blur();
+		}
+
+		// // Handle the message inside the webview
+        // window.addEventListener('message', event => {
+
+        //     const message = event.data; // The JSON data our extension sent
+
+        //     switch (message.command) {
+        //         case 'refactor':
+        //             Reveal.toggleHelp();
+        //     }
+        // });
+
+		if (window.location.search.match(/print-pdf-now/gi)) {
+      		setTimeout(() => {
+				window.print();
+			  }, 2500);
+			
+    }
+</script>
+
+</body>
+
+</html>
